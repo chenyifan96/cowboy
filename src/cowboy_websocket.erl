@@ -195,6 +195,19 @@ handler_before_loop(State=#state{socket=Socket, transport=Transport},
 	Transport:setopts(Socket, [{active, once}]),
 	handler_loop(State, Req, HandlerState, SoFar).
 
+-spec handler_before_loop_not_set_active(#state{}, Req, any(), binary())
+		-> {ok, Req, cowboy_middleware:env()}
+	| {suspend, module(), atom(), [any()]}
+	when Req::cowboy_req:req().
+handler_before_loop_not_set_active(State=#state{
+			socket=Socket, transport=Transport, hibernate=true},
+		Req, HandlerState, SoFar) ->
+	{suspend, ?MODULE, handler_loop,
+		[State#state{hibernate=false}, Req, HandlerState, SoFar]};
+handler_before_loop_not_set_active(State=#state{socket=Socket, transport=Transport},
+		Req, HandlerState, SoFar) ->
+	handler_loop(State, Req, HandlerState, SoFar).
+
 -spec handler_loop_timeout(#state{}) -> #state{}.
 handler_loop_timeout(State=#state{timeout=infinity}) ->
 	State#state{timeout_ref=undefined};
@@ -225,7 +238,7 @@ handler_loop(State=#state{socket=Socket, messages={OK, Closed, Error},
 			handler_loop(State, Req, HandlerState, SoFar);
 		Message ->
 			handler_call(State, Req, HandlerState,
-				SoFar, websocket_info, Message, fun handler_before_loop/4)
+				SoFar, websocket_info, Message, fun handler_before_loop_not_set_active/4)
 	end.
 
 %% All frames passing through this function are considered valid,
